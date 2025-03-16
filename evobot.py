@@ -7,18 +7,18 @@ import os
 import json
 import chardet
 
-# Настройка логирования
+# настройка логирования
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Глобальные переменные
-summarized_text = None
-questions = []  # Список вопросов и правильных ответов
-user_answers = {}  # Ответы пользователя
 
-# Функция для отправки запроса в Ollama API
+summarized_text = None
+questions = []  # cписок вопросов и правильных ответов
+user_answers = {}  # ответы пользователя
+
+# функция для отправки запроса в Ollama API
 def ask_ollama(prompt, max_tokens=4000):
-    url = "https://sickeningly-meteoric-gallinule.cloudpub.ru/generate"
+    url = "https://sickeningly-meteoric-gallinule.cloudpub.ru/generate" # API по которому передаёт запрос
     headers = {
         "Content-Type": "application/json"
     }
@@ -36,12 +36,12 @@ def ask_ollama(prompt, max_tokens=4000):
         logger.error(f"Ошибка при запросе к Ollama API: {e}")
         return f"Ошибка при запросе к нейросети. Детали: {str(e)}"
 
-# Функция для отправки длинных сообщений
+# отправка длинных сообщений
 async def send_long_response(update: Update, response: str, max_length=4096):
     for i in range(0, len(response), max_length):
         await update.message.reply_text(response[i:i + max_length])
 
-# Функция для извлечения текста из файла
+# извлечение текста из файла
 def extract_text_from_file(file_path, file_type):
     try:
         if file_type == "txt":
@@ -56,14 +56,14 @@ def extract_text_from_file(file_path, file_type):
         logger.error(f"Ошибка при извлечении текста из файла: {e}")
         raise
 
-# Функция для определения кодировки файла
+# определение кодировки файла
 def detect_encoding(file_path):
     with open(file_path, 'rb') as file:
         raw_data = file.read()
         result = chardet.detect(raw_data)
         return result['encoding']
 
-# Обработчик команды /start
+# обработка команды /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global summarized_text, questions, user_answers
     summarized_text = None  # Сбрасываем сохранённый текст
@@ -73,12 +73,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         'Привет! Начинаем новый диалог. Отправь мне текстовый файл (txt или pdf) или текст, и я сделаю подробный пересказ.'
     )
 
-# Обработчик текстовых сообщений
+# обработчик текстовых сообщений
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global summarized_text, questions, user_answers
     user_text = update.message.text
 
-    # Если пользователь отвечает на вопросы
+    # ответы на вопросы
     if "question_id" in context.user_data:
         question_id = context.user_data["question_id"]
         user_answers[question_id] = user_text  # Сохраняем ответ пользователя
@@ -96,20 +96,20 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         bot_response = ask_ollama(prompt, max_tokens=1000)
         await update.message.reply_text(bot_response)
 
-        # Если ответ правильный, задаём следующий вопрос
+        # если ответ правильный, задаём следующий вопрос
         if "✅" in bot_response:
             next_question_id = question_id + 1
             if next_question_id < len(questions):
                 await send_question(update, context, next_question_id)
             else:
                 await update.message.reply_text("Все вопросы пройдены! 🎉")
-                del context.user_data["question_id"]  # Убираем question_id из контекста
+                del context.user_data["question_id"]  
         else:
-            # Если ответ неправильный, остаёмся на текущем вопросе
+            # если ответ неправильный, остаёмся на текущем вопросе
             await send_question(update, context, question_id)
         return
 
-    # Формируем промпт для подробного пересказа
+    # формируем промпт для подробного пересказа
     prompt = (
         f"Сделай подробный пересказ этого текста, сохраняя стиль, тон и ключевые детали оригинала. "
         f"Перескажи сюжет, опиши ключевые события, персонажей и их мотивацию. "
@@ -117,14 +117,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Текст: {user_text}"
     )
 
-    # Отправка запроса в Ollama API
+    # отправка запроса в Ollama API
     bot_response = ask_ollama(prompt, max_tokens=4000)
     summarized_text = bot_response  # Сохраняем пересказ
 
-    # Отправка ответа пользователю
+    # отправка ответа пользователю
     await send_long_response(update, bot_response)
 
-    # Отправляем клавиатуру с кнопками
+    # отправляем клавиатуру с кнопками
     keyboard = [
         [InlineKeyboardButton("Проверить понимание", callback_data="check_understanding")],
         [InlineKeyboardButton("Новый текст", callback_data="new_text")]
@@ -132,7 +132,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("Что дальше?", reply_markup=reply_markup)
 
-# Обработчик файлов
+# обработчик файлов
 async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global summarized_text, questions, user_answers
     file_path = None
@@ -141,17 +141,17 @@ async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
         file_path = f"temp_{update.message.document.file_name}"
         await file.download_to_drive(file_path)
 
-        # Определяем тип файла
+        # определение тип файла
         file_type = file_path.split('.')[-1].lower()
         if file_type not in ["txt", "pdf"]:
             await update.message.reply_text("Неподдерживаемый формат файла. Пожалуйста, отправьте файл в формате txt или pdf.")
             return
 
-        # Извлекаем текст из файла
+        # извлечение текста из файла
         text = extract_text_from_file(file_path, file_type)
         logger.info(f"Текст из файла: {text[:100]}...")  # Логируем первые 100 символов
 
-        # Разбиваем текст на главы (если это книга)
+        
         chapters = split_into_chapters(text)
         summarized_parts = []
         previous_context = ""  # Сохраняем контекст из предыдущих глав
@@ -167,7 +167,7 @@ async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
             summarized_parts.append(bot_response)
             previous_context = bot_response  # Сохраняем контекст для следующей главы
 
-        # Объединяем пересказ
+        
         summarized_text = "\n\n".join(summarized_parts)
 
         # Отправляем ответ пользователю
@@ -186,13 +186,12 @@ async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Произошла ошибка при обработке файла. Пожалуйста, попробуйте ещё раз.")
 
     finally:
-        # Удаляем временный файл
+
         if file_path and os.path.exists(file_path):
             os.remove(file_path)
 
-# Функция для разделения текста на главы
+
 def split_into_chapters(text):
-    # Пример: разделяем текст по заголовкам глав (например, "Глава 1", "Глава 2")
     chapters = []
     current_chapter = ""
     for line in text.splitlines():
@@ -231,7 +230,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Вызываем функцию start для сброса состояния
         await start(update, context)
 
-# Функция для отправки вопроса пользователю
+# отправка вопроса пользователю
 async def send_question(update: Update, context: ContextTypes.DEFAULT_TYPE, question_id: int):
     if question_id < len(questions):
         question = questions[question_id]["question"]
@@ -240,7 +239,7 @@ async def send_question(update: Update, context: ContextTypes.DEFAULT_TYPE, ques
     else:
         await update.callback_query.message.reply_text("Вопросы закончились! 🎉")
 
-# Функция для парсинга вопросов и ответов
+# парсинг вопросов и ответов
 def parse_questions_and_answers(text):
     questions = []
     lines = text.splitlines()
@@ -251,21 +250,21 @@ def parse_questions_and_answers(text):
             questions.append({"question": question, "answer": answer})
     return questions
 
-# Основная функция
+
 def main():
-    # Вставьте ваш API-токен
+    # API-токен тг бота
     token = "7611506314:AAEuZmc-RG5nLAuMjfmZS0qdtPmLXE86fxo"
 
-    # Создание приложения
+    # создание приложения
     application = Application.builder().token(token).build()
 
-    # Регистрация обработчиков
+    # регистрация обработчиков
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     application.add_handler(MessageHandler(filters.Document.ALL, handle_file))
     application.add_handler(CallbackQueryHandler(button_handler))
 
-    # Запуск бота
+    # запуск бота
     application.run_polling()
 
 if __name__ == '__main__':
